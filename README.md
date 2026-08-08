@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AI Smart Loan Eligibility, Recommendation & Document Verification System
 
 An automated full-stack banking portal designed to process loan applications end-to-end. It features real-time eligibility checking, Groq AI loan recommendations, EasyOCR document parsing, live biometric face-recognition matching, metadata-based fraud detection, and automated ReportLab PDF audit reports.
@@ -106,3 +107,7 @@ Upon startup, the database auto-seeds the following accounts for demonstration p
 | **Customer (User)** | `user@bank.com` | `User@1234` |
 | **Credit Officer** | `officer@bank.com` | `Officer@1234` |
 | **System Admin** | `admin@bank.com` | `Admin@1234` |
+=======
+# AI-Loan-System
+AI-powered loan approval and verification system using Python, Flask, face verification, and document analysis.
+>>>>>>> 149767dc7fca12001c2c161eb5cecca832671089
