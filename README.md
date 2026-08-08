@@ -1,113 +1,266 @@
-<<<<<<< HEAD
-# AI Smart Loan Eligibility, Recommendation & Document Verification System
+# 🏦 AI Smart Loan Eligibility, Recommendation & Document Verification System
 
-An automated full-stack banking portal designed to process loan applications end-to-end. It features real-time eligibility checking, Groq AI loan recommendations, EasyOCR document parsing, live biometric face-recognition matching, metadata-based fraud detection, and automated ReportLab PDF audit reports.
+## 📌 Project Overview
 
----
+The AI Smart Loan Eligibility, Recommendation & Document Verification System is an intelligent loan processing platform designed to automate and simplify the loan approval process.
 
-## Key Features
+The system integrates Artificial Intelligence, OCR-based document verification, face verification, fraud detection, and an AI chatbot to provide a secure and efficient digital loan experience.
 
-1. **AI Recommendations**: Analyzes profiles via the Groq Llama 3 API and suggests loan options with repayment terms, EMIs, and approval probabilities.
-2. **OCR Parsing**: Scans Aadhaar and PAN documents, extracting Name, DOB, ID Number, and Gender details dynamically.
-3. **Biometric Face Verification**: Compares webcam frame snapshots against Aadhaar Card pictures using facial distance similarity metrics.
-4. **EXIF Fraud Scanner**: Scans metadata logs to detect Photoshop/Canva manipulation headers and checks MD5 hashes for duplicate applications.
-5. **PDF Exports**: Generates styled PDF files for application receipts, verification audits, and appointment letters.
-6. **Bilingual Support**: Instant client-side switching between English and Telugu.
-7. **Dark Mode Theme**: Premium theme variables persisted via LocalStorage.
+The platform reduces manual verification efforts, improves security, minimizes fraud, and accelerates loan processing.
 
 ---
 
-## Project Structure
+## 🎯 Objectives
 
-```
-├── app.py
-├── config.py
-├── requirements.txt
-├── .env
-├── .env.example
-├── .gitignore
-├── static/
-│   ├── css/
-│   │   └── style.css
-│   └── js/
-│       ├── main.js
-│       └── dashboard.js
-├── templates/
-│   ├── base.html
-│   ├── landing.html
-│   ├── login.html
-│   ├── register.html
-│   ├── forgot_password.html
-│   ├── dashboard_user.html
-│   ├── dashboard_officer.html
-│   └── dashboard_admin.html
-├── routes/
-│   ├── auth.py
-│   └── api.py
-├── services/
-│   ├── ai_service.py
-│   ├── ocr_service.py
-│   ├── face_service.py
-│   ├── fraud_service.py
-│   └── pdf_service.py
-├── models/
-│   └── db.py
-└── middleware/
-    └── auth_middleware.py
+* Automate loan eligibility assessment
+* Provide AI-based loan recommendations
+* Verify documents using OCR technology
+* Perform face verification and liveness detection
+* Reduce fraud during loan processing
+* Enable role-based loan management
+* Improve customer experience through AI assistance
+
+---
+
+## 👥 User Roles
+
+### 👤 Customer/User
+
+Customers can:
+
+* Register and Login
+* Apply for Loans
+* Upload Required Documents
+* Complete Face Verification
+* View Loan Eligibility
+* Receive Loan Recommendations
+* Track Application Status
+* Download Reports
+* Interact with AI Chatbot
+
+---
+
+### 🛡 Credit Verification Officer
+
+Officers can:
+
+* Review Loan Applications
+* Verify Uploaded Documents
+* Check OCR Results
+* View Face Verification Results
+* Review Fraud Detection Reports
+* Approve Applications
+* Reject Applications
+* Request Additional Documents
+
+---
+
+### ⚙ Administrator
+
+Administrators can:
+
+* Manage Users
+* Manage Officers
+* Monitor Applications
+* View Analytics
+* Track Approval Statistics
+* Monitor System Activity
+
+---
+
+## 🚀 Key Features
+
+### 🤖 AI Loan Eligibility & Recommendation
+
+* Eligibility Scoring
+* Loan Recommendation Engine
+* Risk Assessment
+* EMI Estimation
+
+### 📄 OCR Document Verification
+
+* Aadhaar Verification
+* PAN Verification
+* Automatic Data Extraction
+* Document Consistency Validation
+
+### 👤 Face Verification
+
+* Live Face Capture
+* Face Matching
+* Similarity Score Calculation
+* Liveness Detection
+
+### 🛡 Fraud Detection
+
+* Duplicate Document Detection
+* Image Tampering Analysis
+* Fraud Risk Scoring
+
+### 💬 AI Chatbot
+
+* English Support
+* Telugu Support
+* Loan Guidance
+* Eligibility Assistance
+* Application Status Queries
+
+### 📑 PDF Report Generation
+
+* Application Summary Reports
+* Verification Reports
+* Loan Approval Reports
+
+---
+
+## 🔄 System Workflow
+
+```text
+User Registration/Login
+        ↓
+Loan Application
+        ↓
+AI Eligibility Check
+        ↓
+Loan Recommendation
+        ↓
+Document Upload
+        ↓
+OCR Verification
+        ↓
+Face Verification
+        ↓
+Fraud Detection
+        ↓
+Application Submission
+        ↓
+Officer Review
+        ↓
+Approve / Reject / Request Documents
+        ↓
+PDF Report Generation
+        ↓
+Final Status Update
 ```
 
 ---
 
-## Getting Started
+## 🛠 Technology Stack
 
-### 1. Prerequisites
-Ensure you have **Python 3.8+** installed. If using real OCR features, you can optionally install `Tesseract-OCR` or `EasyOCR`. If C++ bindings fail, the system runs on built-in mock/OpenCV heuristic algorithms seamlessly.
+### Frontend
 
-### 2. Set Up Virtual Environment
-```bash
-# Clone or open the folder
-cd FINAL
+* HTML5
+* CSS3
+* Bootstrap 5
+* JavaScript
 
-# Create virtual environment
-python -m venv venv
+### Backend
 
-# Activate on Windows
-venv\Scripts\activate
-```
+* Python 3.x
+* Flask
 
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+### Database
 
-### 4. Environment Configuration
-Create or configure the `.env` file in the root directory:
-```env
-MONGO_URI=mongodb://localhost:27017/loan_db
-GROQ_API_KEY=your_groq_api_key
-JWT_SECRET=loan_secret_jwt_key_2026_secure_key
-PORT=5000
-```
+* MongoDB
 
-### 5. Running the Application
-Ensure MongoDB is running locally (default: port 27017) or configure a remote URI in `.env`.
-```bash
-python app.py
-```
-Open your browser and navigate to: `http://localhost:5000`
+### Authentication
+
+* JWT Authentication
+
+### AI & Computer Vision
+
+* EasyOCR
+* OpenCV
+* DeepFace
+* Face Recognition
+
+### AI Services
+
+* Groq API
+* Llama 3.1
+
+### Testing Tools
+
+* Postman
+* Selenium WebDriver
+* Apache JMeter
+* Python unittest
+
+### Version Control
+
+* Git
+* GitHub
 
 ---
 
-## Seed Accounts (Preloaded on Boot)
+## 📂 Project Modules
 
-Upon startup, the database auto-seeds the following accounts for demonstration purposes:
+* Authentication Module
+* Customer Module
+* Officer Module
+* Admin Module
+* AI Eligibility Module
+* Loan Recommendation Module
+* OCR Verification Module
+* Face Verification Module
+* Fraud Detection Module
+* AI Chatbot Module
+* PDF Report Generation Module
 
-| Role | Username / Email | Password |
-|---|---|---|
-| **Customer (User)** | `user@bank.com` | `User@1234` |
-| **Credit Officer** | `officer@bank.com` | `Officer@1234` |
-| **System Admin** | `admin@bank.com` | `Admin@1234` |
-=======
-# AI-Loan-System
-AI-powered loan approval and verification system using Python, Flask, face verification, and document analysis.
->>>>>>> 149767dc7fca12001c2c161eb5cecca832671089
+---
+
+## 📊 Expected Benefits
+
+* Faster Loan Processing
+* Improved Verification Accuracy
+* Reduced Manual Work
+* Enhanced Security
+* Fraud Prevention
+* Better Customer Experience
+* Fully Digital Loan Workflow
+
+---
+
+## 👨‍💻 Team AI 5 TECH
+
+| Team Member  | Role                                      |
+| ------------ | ----------------------------------------- |
+| J. Pavani    | Frontend Developer                        |
+| A. Lohitha   | Backend Developer                         |
+| J. Hemanjali | Database & AI Developer                   |
+| Ch. Jahnavi  | System Development                        |
+| G. Haritha   | Testing & Documentation                   |
+| V. Vanaja    | AI Chatbot & System Integration Developer |
+
+---
+
+## 🏫 Academic Information
+
+**College:** Kakinada Institute of Engineering and Technology for Women (KIETW)
+
+**Department:** Artificial Intelligence & Machine Learning
+
+**Academic Year:** 2026
+
+**Batch:** 01
+
+**Team:** 24
+
+**Team Name:** AI 5 TECH
+
+---
+
+## 🔮 Future Scope
+
+* Credit Score Integration
+* Mobile Application Development
+* Banking API Integration
+* Advanced Fraud Detection Models
+* Digital Signature Verification
+* Cloud Deployment
+
+---
+
+## 📜 License
+
+This project was developed as part of the B.Tech Major Project at Kakinada Institute of Engineering and Technology for Women for academic and educational purposes.
