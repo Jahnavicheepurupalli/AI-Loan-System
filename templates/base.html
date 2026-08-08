@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Smart Loan System - Bank Portal</title>
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Unified API Client Utility -->
+    <script src="/static/js/api.js"></script>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar">
+        <a href="/" class="logo">
+            <i class="fa-solid fa-building-columns"></i>
+            <span>AI SmartLoan</span>
+        </a>
+        
+        <!-- Guest Navigation Links -->
+        {% if not session.get('user_id') %}
+        <ul class="nav-links">
+            <li><a href="/" data-translate="nav_home">Home</a></li>
+            <li><a href="/#features" data-translate="nav_features">AI Features</a></li>
+            <li><a href="/#catalog" data-translate="nav_loans">Loan Catalog</a></li>
+        </ul>
+        {% endif %}
+
+        <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
+            <!-- Language Selector -->
+            <div class="lang-selector-wrapper" style="display: flex; align-items: center; gap: 4px;">
+                <i class="fa-solid fa-globe" style="color: var(--text-primary); font-size: 0.85rem;"></i>
+                <select id="lang-selector" class="form-control" style="width: 90px; padding: 2px 4px; font-size: 0.8rem; height: 28px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">
+                    <option value="en">English</option>
+                    <option value="te">తెలుగు</option>
+                </select>
+            </div>
+            
+            <!-- Theme Selector -->
+            <div class="theme-selector-wrapper" style="display: flex; align-items: center; gap: 4px;">
+                <i class="fa-solid fa-circle-half-stroke" style="color: var(--text-primary); font-size: 0.85rem;"></i>
+                <select id="theme-selector" class="form-control" style="width: 105px; padding: 2px 4px; font-size: 0.8rem; height: 28px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer;">
+                    <option value="light" data-translate="light">Light</option>
+                    <option value="dark" data-translate="dark">Dark</option>
+                    <option value="system" data-translate="system_mode">System Default</option>
+                </select>
+            </div>
+            
+            {% if session.get('user_id') %}
+                <!-- Notification Bell with Badge -->
+                <div style="position: relative; cursor: pointer; display: flex; align-items: center; margin-right: 5px;" onclick="try { showSection('notifications'); } catch(e) { window.location.href='/dashboard/user#notifications'; }">
+                    <i class="fa-solid fa-bell" style="font-size: 1.15rem; color: var(--text-primary);"></i>
+                    <span id="unread-notifications-count" style="position: absolute; top: -6px; right: -8px; background: #ef4444; color: white; border-radius: 50%; font-size: 0.65rem; padding: 2px 5px; font-weight: bold; display: none;">0</span>
+                </div>
+
+                <span class="user-greeting" style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <img id="nav-avatar" src="{{ session.get('user_picture') or '/static/uploads/live_placeholder.jpg' }}" alt="Avatar" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--primary-light);">
+                    <span id="nav-user-name">{{ session.get('user_name') }}</span> (<span id="nav-user-role">{{ session.get('user_role')|upper }}</span>)
+                </span>
+                <a href="/logout" class="btn btn-secondary" style="border-color: var(--danger); color: var(--danger);">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            {% else %}
+                <a href="/login" class="btn btn-secondary" data-translate="nav_login">Login</a>
+                <a href="/register" class="btn btn-primary" data-translate="nav_register">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <!-- Base Page Layout Block -->
+    {% block content %}{% endblock %}
+
+    <!-- Interactive AI Chatbot Widget -->
+    <div class="chat-toggle-btn" id="chat-toggle" title="Open AI Loan Assistant">
+        <i class="fa-solid fa-comment-dots"></i>
+    </div>
+    
+    <div class="chat-widget glass-panel" id="chat-widget">
+        <div class="chat-header">
+            <div>
+                <i class="fa-solid fa-robot"></i>
+                <span style="font-weight: 700; margin-left: 8px;">AI Loan Assistant</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <button id="chat-minimize" style="background: transparent; color: white; font-size: 1rem; cursor: pointer; border: none; outline: none; padding: 2px 4px; display: flex; align-items: center;" title="Minimize">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+                <button id="chat-maximize" style="background: transparent; color: white; font-size: 0.9rem; cursor: pointer; border: none; outline: none; padding: 2px 4px; display: flex; align-items: center;" title="Maximize">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
+                <button id="chat-close" style="background: transparent; color: white; font-size: 1.1rem; cursor: pointer; border: none; outline: none; padding: 2px 4px; display: flex; align-items: center; z-index: 1010;" title="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages">
+            <div class="chat-msg bot">
+                Hello! I am your AI Smart Loan assistant. Ask me anything about loan products, interest rates, eligibility criteria, or document checklist rules. I support English and Telugu!
+            </div>
+        </div>
+        
+        <!-- Voice Assistant Indicators -->
+        <div id="voice-indicator" style="display: none; background: rgba(59, 130, 246, 0.1); color: var(--primary-light); text-align: center; padding: 0.5rem; font-size: 0.85rem; font-weight: 600; border-top: 1px solid var(--border-color);">
+            <i class="fa-solid fa-microphone fa-bounce" style="margin-right: 6px;"></i> Listening (English/Telugu)... Speak now
+        </div>
+        
+        <!-- Chatbot Quick Action Buttons -->
+        <div class="chat-quick-actions" style="display: flex; gap: 6px; padding: 0.5rem; overflow-x: auto; background: var(--bg-secondary); border-top: 1px solid var(--border-color); white-space: nowrap; scrollbar-width: none;">
+            <button class="btn-quick-action" onclick="sendQuickMessage('Check Eligibility')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; background: rgba(59, 130, 246, 0.1); color: var(--primary-light); border: 1px solid rgba(59, 130, 246, 0.2); cursor: pointer; font-weight: 600; outline: none;">Check Eligibility</button>
+            <button class="btn-quick-action" onclick="sendQuickMessage('Required Documents')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; background: rgba(59, 130, 246, 0.1); color: var(--primary-light); border: 1px solid rgba(59, 130, 246, 0.2); cursor: pointer; font-weight: 600; outline: none;">Required Documents</button>
+            <button class="btn-quick-action" onclick="sendQuickMessage('Track Application')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; background: rgba(59, 130, 246, 0.1); color: var(--primary-light); border: 1px solid rgba(59, 130, 246, 0.2); cursor: pointer; font-weight: 600; outline: none;">Track Application</button>
+            <button class="btn-quick-action" onclick="sendQuickMessage('EMI Calculator')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; background: rgba(59, 130, 246, 0.1); color: var(--primary-light); border: 1px solid rgba(59, 130, 246, 0.2); cursor: pointer; font-weight: 600; outline: none;">EMI Calculator</button>
+            <button class="btn-quick-action" onclick="sendQuickMessage('Contact Officer')" style="padding: 4px 10px; font-size: 0.75rem; border-radius: 20px; background: rgba(59, 130, 246, 0.1); color: var(--primary-light); border: 1px solid rgba(59, 130, 246, 0.2); cursor: pointer; font-weight: 600; outline: none;">Contact Officer</button>
+        </div>
+        
+        <script>
+            window.sendQuickMessage = function(text) {
+                const messageInput = document.getElementById("chat-input");
+                if (messageInput) {
+                    messageInput.value = text;
+                    const sendBtn = document.getElementById("chat-send");
+                    if (sendBtn) sendBtn.click();
+                }
+                try {
+                    if (typeof showSection === "function") {
+                        if (text === "EMI Calculator") {
+                            showSection("calculator");
+                        } else if (text === "Check Eligibility") {
+                            showSection("apply");
+                        } else if (text === "Track Application") {
+                            showSection("tracking");
+                        } else if (text === "Required Documents") {
+                            showSection("loans");
+                        }
+                    }
+                } catch(e) {
+                    console.log("Quick action context bypass", e);
+                }
+            };
+        </script>
+        
+        <div class="chat-input-area">
+            <input type="text" class="form-control" id="chat-input" placeholder="Type a message..." style="border-radius: 20px;">
+            <button class="btn btn-secondary" id="voice-btn" title="Speak to Voice Assistant" style="border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; padding: 0;">
+                <i class="fa-solid fa-microphone"></i>
+            </button>
+            <button class="btn btn-primary" id="chat-send" style="border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; padding: 0;">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    <!-- Scripts -->
+    <script src="/static/js/main.js"></script>
+    
+    <!-- Embed Speech Recognition and Chat Widget Controller -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const chatToggle = document.getElementById("chat-toggle");
+            const chatWidget = document.getElementById("chat-widget");
+            const chatClose = document.getElementById("chat-close");
+            const chatInput = document.getElementById("chat-input");
+            const chatSend = document.getElementById("chat-send");
+            const chatMessages = document.getElementById("chat-messages");
+            const voiceBtn = document.getElementById("voice-btn");
+            const voiceIndicator = document.getElementById("voice-indicator");
+            
+            let chatHistory = [];
+            try {
+                const savedHistory = localStorage.getItem("chat_history_state");
+                if (savedHistory) {
+                    chatHistory = JSON.parse(savedHistory);
+                    chatMessages.innerHTML = "";
+                    chatHistory.forEach(msg => {
+                        const bubble = document.createElement("div");
+                        bubble.className = "chat-msg " + (msg.sender === "user" ? "user" : "bot");
+                        bubble.innerText = msg.text;
+                        chatMessages.appendChild(bubble);
+                    });
+                    setTimeout(() => {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }, 100);
+                }
+            } catch(e) {
+                console.error("Error restoring chat history:", e);
+            }
+            let speakNextResponse = false;
+
+            // Clear token, role, user data on logout
+            const logoutBtns = document.querySelectorAll('a[href="/logout"], a[href="/api/auth/logout"]');
+            logoutBtns.forEach(btn => {
+                btn.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("role");
+                    localStorage.removeItem("user");
+                    sessionStorage.clear();
+                    window.location.href = "/api/auth/logout";
+                });
+            });
+
+            // Open/Close toggle
+            chatToggle.addEventListener("click", () => {
+                chatWidget.classList.add("active");
+                chatToggle.style.display = "none";
+                if (chatWidget.classList.contains("active")) {
+                    const savedLang = localStorage.getItem("selected_lang");
+                    if (!savedLang) {
+                        chatMessages.innerHTML = ""; // Clear default greeting
+                        promptLanguageSelection();
+                    } else {
+                        // If only the default bubble is present, refresh it to the correct language greeting
+                        if (chatMessages.children.length === 1 && chatMessages.children[0].innerText.startsWith("Hello! I am your AI")) {
+                            setChatbotLanguage(savedLang, true);
+                        }
+                    }
+                }
+            });
+            chatClose.addEventListener("click", () => {
+                chatWidget.classList.remove("active");
+                chatWidget.classList.remove("minimized");
+                chatWidget.classList.remove("maximized");
+                chatToggle.style.display = "flex";
+            });
+
+            // Minimize/Maximize toggle
+            const chatMinimize = document.getElementById("chat-minimize");
+            const chatMaximize = document.getElementById("chat-maximize");
+            
+            chatMinimize.addEventListener("click", (e) => {
+                e.stopPropagation();
+                chatWidget.classList.toggle("minimized");
+                chatWidget.classList.remove("maximized");
+            });
+
+            chatMaximize.addEventListener("click", (e) => {
+                e.stopPropagation();
+                chatWidget.classList.toggle("maximized");
+                chatWidget.classList.remove("minimized");
+                const icon = chatMaximize.querySelector("i");
+                if (chatWidget.classList.contains("maximized")) {
+                    icon.className = "fa-solid fa-compress";
+                } else {
+                    icon.className = "fa-solid fa-expand";
+                }
+            });
+
+            // Escape key to close chatbot
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && chatWidget.classList.contains("active")) {
+                    chatWidget.classList.remove("active");
+                    chatWidget.classList.remove("minimized");
+                    chatWidget.classList.remove("maximized");
+                    chatToggle.style.display = "flex";
+                }
+            });
+
+            // Send message
+            let chatProcessing = false;
+            async function sendMessage(text) {
+                if (chatProcessing || !text.trim()) return;
+                chatProcessing = true;
+                chatSend.disabled = true;
+                if (voiceBtn) voiceBtn.disabled = true;
+                chatInput.disabled = true;
+                
+                // Add user bubble
+                const userBubble = document.createElement("div");
+                userBubble.className = "chat-msg user";
+                userBubble.innerText = text;
+                chatMessages.appendChild(userBubble);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                chatInput.value = "";
+                
+                // Add typing indicator
+                const typingIndicator = document.createElement("div");
+                typingIndicator.className = "chat-msg bot typing-indicator";
+                typingIndicator.innerHTML = "<span></span><span></span><span></span>";
+                chatMessages.appendChild(typingIndicator);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Fetch AI reply via api.js
+                try {
+                    const result = await apiPost("/chatbot", {
+                        message: text,
+                        language: localStorage.getItem("selected_lang") || "en",
+                        history: chatHistory
+                    });
+                    
+                    typingIndicator.remove();
+                    
+                    if (result.reply) {
+                        // Add bot bubble
+                        const botBubble = document.createElement("div");
+                        botBubble.className = "chat-msg bot";
+                        botBubble.innerText = result.reply;
+                        chatMessages.appendChild(botBubble);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        
+                        // TTS read-back if triggered from voice
+                        if(speakNextResponse) {
+                            speakText(result.reply);
+                        }
+                        
+                        // Append history
+                        chatHistory.push({ sender: "user", text: text });
+                        chatHistory.push({ sender: "bot", text: result.reply });
+                        // Keep history length within last 10 messages
+                        if (chatHistory.length > 10) {
+                            chatHistory = chatHistory.slice(-10);
+                        }
+                        localStorage.setItem("chat_history_state", JSON.stringify(chatHistory));
+                    }
+                } catch(e) {
+                    console.error(e);
+                    typingIndicator.remove();
+                    const botBubble = document.createElement("div");
+                    botBubble.className = "chat-msg bot";
+                    botBubble.innerText = "Sorry, I am having trouble connecting right now.";
+                    chatMessages.appendChild(botBubble);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                } finally {
+                    chatProcessing = false;
+                    chatSend.disabled = false;
+                    if (voiceBtn) voiceBtn.disabled = false;
+                    chatInput.disabled = false;
+                    chatInput.focus();
+                }
+            }
+
+            if (!window.chatEventHandlersBound) {
+                window.chatEventHandlersBound = true;
+                
+                chatSend.addEventListener("click", () => {
+                    speakNextResponse = false;
+                    sendMessage(chatInput.value);
+                });
+                
+                chatInput.addEventListener("keypress", (e) => {
+                    if (e.key === "Enter") {
+                        speakNextResponse = false;
+                        sendMessage(chatInput.value);
+                    }
+                });
+            }
+
+            // --- Voice Assistant (Web Speech API) ---
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            voiceBtn.addEventListener("click", () => {
+                if (chatProcessing) return;
+                if (!SpeechRecognition) {
+                    showToast("Voice assistant is not supported in this browser.", "error");
+                    const botBubble = document.createElement("div");
+                    botBubble.className = "chat-msg bot";
+                    botBubble.innerText = "Voice assistant is not supported in this browser. Please use Google Chrome.";
+                    chatMessages.appendChild(botBubble);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    return;
+                }
+                
+                const recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = localStorage.getItem("selected_lang") === "te" ? "te-IN" : "en-US";
+                
+                recognition.onstart = () => {
+                    voiceIndicator.style.display = "block";
+                };
+                
+                recognition.onend = () => {
+                    voiceIndicator.style.display = "none";
+                };
+                
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    chatInput.value = transcript; // Put text in input box
+                    speakNextResponse = true;
+                    sendMessage(transcript); // Send to backend
+                };
+                
+                recognition.onerror = (e) => {
+                    console.error("Speech Recognition error: ", e);
+                    voiceIndicator.style.display = "none";
+                    let msg = "Speech input failed: " + (e.error || "aborted");
+                    if (e.error === 'not-allowed') {
+                        msg = "Microphone permission is blocked or denied. Please click the microphone icon in your browser address bar to allow access.";
+                    } else if (e.error === 'service-not-allowed') {
+                        msg = "Microphone service is not allowed by the system or browser security policies.";
+                    } else if (e.error === 'aborted') {
+                        msg = "Speech recognition aborted. Please make sure your microphone is connected and not in use by another application.";
+                    }
+                    showToast(msg, "warning");
+                    
+                    const botBubble = document.createElement("div");
+                    botBubble.className = "chat-msg bot";
+                    botBubble.innerText = msg;
+                    chatMessages.appendChild(botBubble);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                };
+                
+                recognition.start();
+            });
+
+            // Speak Text Function
+            function speakText(text) {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const cleaned = text.replace(/<[^>]*>/g, '').replace(/\*/g, '');
+                    const utterance = new SpeechSynthesisUtterance(cleaned);
+                    utterance.lang = localStorage.getItem("selected_lang") === "te" ? "te-IN" : "en-US";
+                    window.speechSynthesis.speak(utterance);
+                }
+            }
+
+            function promptLanguageSelection() {
+                if (document.getElementById("lang-select-container")) return;
+                
+                const welcomeBubble = document.createElement("div");
+                welcomeBubble.className = "chat-msg bot";
+                welcomeBubble.id = "lang-select-container";
+                welcomeBubble.innerHTML = `
+                    <div style="font-weight: 700; margin-bottom: 6px;">Please choose your language / దయచేసి మీ భాషను ఎంచుకోండి</div>
+                    <div style="display: flex; gap: 8px; margin-top: 8px;">
+                        <button class="btn btn-primary btn-sm" id="chat-lang-btn-en" style="padding: 4px 12px; font-size: 0.85rem; border-radius: 4px;">English</button>
+                        <button class="btn btn-secondary btn-sm" id="chat-lang-btn-te" style="padding: 4px 12px; font-size: 0.85rem; border-radius: 4px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">Telugu</button>
+                    </div>
+                `;
+                chatMessages.appendChild(welcomeBubble);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                document.getElementById("chat-lang-btn-en").addEventListener("click", () => {
+                    setChatbotLanguage("en");
+                });
+                document.getElementById("chat-lang-btn-te").addEventListener("click", () => {
+                    setChatbotLanguage("te");
+                });
+            }
+
+            function setChatbotLanguage(lang, silent = false) {
+                localStorage.setItem("selected_lang", lang);
+                // Also updates the document translation and the buttons states
+                setLanguage(lang);
+                
+                const container = document.getElementById("lang-select-container");
+                if (container) {
+                    container.remove();
+                }
+                
+                if (!silent) {
+                    const botBubble = document.createElement("div");
+                    botBubble.className = "chat-msg bot";
+                    if (lang === "en") {
+                        botBubble.innerText = "Language set to English. How can I help you today?";
+                        chatMessages.appendChild(botBubble);
+                        speakText("Language set to English. How can I help you today?");
+                    } else {
+                        botBubble.innerText = "భాష తెలుగుగా సెట్ చేయబడింది. నేను మీకు ఏ విధంగా సహాయం చేయగలను?";
+                        chatMessages.appendChild(botBubble);
+                        speakText("భాష తెలుగుగా సెట్ చేయబడింది. నేను మీకు ఏ విధంగా సహాయం చేయగలను?");
+                    }
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                } else {
+                    // Update fallback default greeting
+                    chatMessages.innerHTML = "";
+                    const botBubble = document.createElement("div");
+                    botBubble.className = "chat-msg bot";
+                    if (lang === "en") {
+                        botBubble.innerText = "Hello! I am your AI Smart Loan assistant. Ask me anything about loan products, interest rates, eligibility criteria, or document checklist rules. I support English and Telugu!";
+                    } else {
+                        botBubble.innerText = "హలో! నేను మీ AI స్మార్ట్ లోన్ అసిస్టెంట్. లోన్ ఉత్పత్తులు, వడ్డీ రేట్లు, అర్హత ప్రమాణాలు లేదా పత్రాల చెక్‌లిస్ట్ నియమాల గురించి నన్ను ఏదైనా అడగండి. నేను ఇంగ్లీష్ మరియు తెలుగుకు మద్దతు ఇస్తాను!";
+                    }
+                    chatMessages.appendChild(botBubble);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            }
+        });
+    </script>
+    <!-- OCR Details Center Modal Overlay -->
+    <div id="ocr-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; backdrop-filter: blur(5px); padding: 20px; box-sizing: border-box;">
+        <div class="glass-panel" style="width: 100%; max-width: 500px; padding: 1.5rem; background: var(--bg-secondary); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); text-align: left; max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--border-color);">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 1.25rem;">
+                    <h3 style="margin: 0; color: var(--primary-light); font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-microchip"></i> <span>OCR Extraction Details</span>
+                    </h3>
+                    <button style="background: transparent; border: none; color: var(--text-primary); cursor: pointer; font-size: 1.5rem; line-height: 1;" onclick="closeOcrModal()">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div id="ocr-modal-content" style="font-size: 0.95rem; display: flex; flex-direction: column; gap: 10px; color: var(--text-secondary);">
+                    <!-- Content populated dynamically -->
+                </div>
+            </div>
+            <button class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 1.5rem; height: 40px; font-weight: 700;" onclick="closeOcrModal()">
+                Close
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        window.closeOcrModal = function() {
+            const modal = document.getElementById("ocr-modal");
+            if (modal) modal.style.display = "none";
+        };
+    </script>
+</body>
+</html>

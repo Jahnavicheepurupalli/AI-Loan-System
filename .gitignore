@@ -1,0 +1,19 @@
+# Environments
+.env
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Local storage directories
+uploads/*
+!uploads/.gitkeep
+reports/*
+!reports/.gitkeep
+
+# IDE files
+.vscode/
+.idea/
+.gemini/
+.agents/

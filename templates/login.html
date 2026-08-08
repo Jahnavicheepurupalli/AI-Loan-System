@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 80vh;
+        padding: 2rem 5%;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 450px;
+        padding: 2.5rem;
+        border-radius: var(--radius-md);
+    }
+    .auth-title {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .auth-title h2 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    .password-input-wrapper {
+        position: relative;
+    }
+    .password-toggle-icon {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: var(--text-muted);
+    }
+    .auth-footer {
+        text-align: center;
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+    }
+</style>
+
+<div class="auth-container">
+    <div class="auth-card glass-panel">
+        <div class="auth-title">
+            <h2>Welcome Back</h2>
+            <p>Access your smart loan dashboard portal</p>
+        </div>
+        
+        <form id="login-form">
+            <!-- Role Selection -->
+            <div class="form-group">
+                <label for="role">Access Role</label>
+                <select class="form-control" id="role" name="role">
+                    <option value="user">Customer (User)</option>
+                    <option value="officer">Credit Officer</option>
+                    <option value="admin">System Administrator</option>
+                </select>
+            </div>
+            
+            <!-- Email -->
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" class="form-control" id="email" name="email" required placeholder="Enter registered email">
+            </div>
+            
+            <!-- Password -->
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-input-wrapper">
+                    <input type="password" class="form-control" id="password" name="password" required placeholder="••••••••">
+                    <i class="fa-solid fa-eye password-toggle-icon" id="toggle-pwd-icon"></i>
+                </div>
+            </div>
+            
+            <!-- Extra Options -->
+            <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; margin-bottom: 1.5rem;">
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; margin-bottom: 0; cursor: pointer;">
+                    <input type="checkbox" id="remember" name="remember" style="width: 16px; height: 16px;"> Remember Me
+                </label>
+                <a href="/forgot-password" style="font-weight: 600;">Forgot Password?</a>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem;">
+                <i class="fa-solid fa-right-to-bracket"></i> Login
+            </button>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 1rem;">
+                    <hr style="flex: 1; border-color: var(--border-color);" />
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">OR CONTINUE WITH</span>
+                    <hr style="flex: 1; border-color: var(--border-color);" />
+                </div>
+                <button type="button" class="btn btn-secondary" id="google-login-btn" style="width: 100%; justify-content: center; gap: 8px;">
+                    <i class="fa-brands fa-google" style="color: #ea4335;"></i> Sign in with Google
+                </button>
+            </div>
+        </form>
+        
+        <div class="auth-footer">
+            <p>New to AI SmartLoan? <a href="/register" style="font-weight: 600;">Register Here</a></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const toggleIcon = document.getElementById("toggle-pwd-icon");
+        const passwordInput = document.getElementById("password");
+        const loginForm = document.getElementById("login-form");
+
+        // Hide/Show Toggle
+        toggleIcon.addEventListener("click", () => {
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                toggleIcon.classList.remove("fa-eye");
+                toggleIcon.classList.add("fa-eye-slash");
+            } else {
+                passwordInput.type = "password";
+                toggleIcon.classList.remove("fa-eye-slash");
+                toggleIcon.classList.add("fa-eye");
+            }
+        });
+
+        // Submit form
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById("email").value;
+            const password = passwordInput.value;
+            const role = document.getElementById("role").value;
+            const remember = document.getElementById("remember").checked;
+            
+            try {
+                const result = await apiPost("/auth/login", { email, password, role, remember });
+                
+                if (result.token) {
+                    localStorage.setItem("token", result.token);
+                    localStorage.setItem("role", result.user.role);
+                    localStorage.setItem("user", JSON.stringify(result.user));
+                }
+                
+                showToast("Login Successful! Redirecting...", "success");
+                setTimeout(() => {
+                    window.location.href = result.redirect;
+                }, 1000);
+            } catch(err) {
+                console.error(err);
+                showToast(err.message || "Login Failed", "error");
+            }
+        });
+
+        // Load Google Identity Services dynamically
+        if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+            const script = document.createElement("script");
+            script.src = "https://accounts.google.com/gsi/client";
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+
+        // Google Login Trigger (Real OAuth using Google Identity Services)
+        const googleBtn = document.getElementById("google-login-btn");
+        if (googleBtn) {
+            googleBtn.addEventListener("click", () => {
+                showToast("Opening Google Account Chooser...", "info");
+                
+                const client_id = "{{ google_client_id }}" || "1098696803714-dps8iil68b8s7l7rve2643a2l0u9e144.apps.googleusercontent.com";
+                
+                try {
+                    const client = google.accounts.oauth2.initTokenClient({
+                        client_id: client_id,
+                        scope: "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
+                        prompt: "select_account",
+                        callback: async (tokenResponse) => {
+                            if (tokenResponse && tokenResponse.access_token) {
+                                showToast("Authenticated. Syncing profile...", "info");
+                                try {
+                                    const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                                        headers: {
+                                            "Authorization": `Bearer ${tokenResponse.access_token}`
+                                        }
+                                    });
+                                    const userInfo = await userInfoResponse.json();
+                                    
+                                    const selectedRole = document.getElementById("role").value;
+                                    const result = await apiPost("/auth/google", {
+                                        email: userInfo.email,
+                                        name: userInfo.name,
+                                        picture: userInfo.picture,
+                                        role: selectedRole,
+                                        token: tokenResponse.access_token
+                                    });
+                                    
+                                    if (result.token) {
+                                        localStorage.setItem("token", result.token);
+                                        localStorage.setItem("role", result.user.role);
+                                        localStorage.setItem("user", JSON.stringify(result.user));
+                                    }
+                                    
+                                    showToast("Google Authentication Successful! Redirecting...", "success");
+                                    setTimeout(() => {
+                                        window.location.href = result.redirect;
+                                    }, 1000);
+                                } catch (fetchErr) {
+                                    console.error("Error retrieving profile data:", fetchErr);
+                                    showToast("Failed to retrieve Google profile data", "error");
+                                }
+                            }
+                        }
+                    });
+                    client.requestAccessToken();
+                } catch (gsiErr) {
+                    console.error("GIS client load failed, using window popup fallback:", gsiErr);
+                    const redirect_uri = window.location.origin + "/oauth-callback";
+                    const scope = "email profile openid";
+                    const response_type = "id_token token";
+                    const nonce = Math.random().toString(36).substring(2);
+                    
+                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${client_id}&redirect_uri=${encodeURIComponent(redirect_uri)}&scope=${encodeURIComponent(scope)}&response_type=${encodeURIComponent(response_type)}&nonce=${nonce}&prompt=select_account`;
+                    
+                    const width = 520;
+                    const height = 650;
+                    const left = (window.innerWidth - width) / 2 + window.screenX;
+                    const top = (window.innerHeight - height) / 2 + window.screenY;
+                    window.open(authUrl, "Google Sign In", `width=${width},height=${height},left=${left},top=${top}`);
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .auth-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 90vh;
+        padding: 2.5rem 5%;
+    }
+    .auth-card {
+        width: 100%;
+        max-width: 500px;
+        padding: 2.5rem;
+        border-radius: var(--radius-md);
+    }
+    .auth-title {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    .auth-title h2 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    .password-input-wrapper {
+        position: relative;
+    }
+    .password-toggle-icon {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: var(--text-muted);
+    }
+    
+    /* Strength Meter */
+    .strength-meter {
+        height: 6px;
+        background: var(--border-color);
+        border-radius: 3px;
+        margin-top: 6px;
+        overflow: hidden;
+    }
+    .strength-bar {
+        height: 100%;
+        width: 0%;
+        border-radius: 3px;
+        transition: width 0.3s ease, background 0.3s ease;
+    }
+    .strength-text {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 4px;
+        font-weight: 600;
+        display: block;
+    }
+    
+    .auth-footer {
+        text-align: center;
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+    }
+</style>
+
+<div class="auth-container">
+    <div class="auth-card glass-panel">
+        <div class="auth-title">
+            <h2>Create Portal Account</h2>
+            <p>Register as a Customer, Officer, or Admin</p>
+        </div>
+        
+        <form id="register-form">
+            <!-- Full Name -->
+            <div class="form-group">
+                <label for="name">Full Name (As in Identity Proof)</label>
+                <input type="text" class="form-control" id="name" name="name" required placeholder="John Doe">
+            </div>
+            
+            <!-- Email -->
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" class="form-control" id="email" name="email" required placeholder="john@example.com">
+            </div>
+
+            <!-- Mobile Number -->
+            <div class="form-group">
+                <label for="mobile">Mobile Number</label>
+                <input type="tel" class="form-control" id="mobile" name="mobile" required pattern="[0-9]{10}" placeholder="9876543210" title="10 digit mobile number required">
+            </div>
+
+            <!-- Role Selection -->
+            <div class="form-group">
+                <label for="role">Register Role</label>
+                <select class="form-control" id="role" name="role">
+                    <option value="user">Customer (User)</option>
+                    <option value="officer">Loan Officer</option>
+                    <option value="admin">System Administrator</option>
+                </select>
+            </div>
+            
+            <!-- Password -->
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-input-wrapper">
+                    <input type="password" class="form-control" id="password" name="password" required placeholder="Min 8 chars, 1 Cap, 1 Num, 1 Special">
+                    <i class="fa-solid fa-eye password-toggle-icon" id="toggle-pwd"></i>
+                </div>
+                <div class="strength-meter">
+                    <div class="strength-bar" id="strength-bar"></div>
+                </div>
+                <span class="strength-text" id="strength-text">Password Strength: Too Weak</span>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <div class="password-input-wrapper">
+                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required placeholder="Retype password">
+                    <i class="fa-solid fa-eye password-toggle-icon" id="toggle-confirm-pwd"></i>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; margin-top: 1rem;">
+                <i class="fa-solid fa-user-plus"></i> Register
+            </button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>Already registered? <a href="/login" style="font-weight: 600;">Login Here</a></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const passwordInput = document.getElementById("password");
+        const confirmInput = document.getElementById("confirm_password");
+        const togglePwd = document.getElementById("toggle-pwd");
+        const toggleConfirmPwd = document.getElementById("toggle-confirm-pwd");
+        
+        const strengthBar = document.getElementById("strength-bar");
+        const strengthText = document.getElementById("strength-text");
+        const registerForm = document.getElementById("register-form");
+
+        // Hide/Show password
+        togglePwd.addEventListener("click", () => {
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                togglePwd.classList.replace("fa-eye", "fa-eye-slash");
+            } else {
+                passwordInput.type = "password";
+                togglePwd.classList.replace("fa-eye-slash", "fa-eye");
+            }
+        });
+
+        // Hide/Show confirm password
+        toggleConfirmPwd.addEventListener("click", () => {
+            if (confirmInput.type === "password") {
+                confirmInput.type = "text";
+                toggleConfirmPwd.classList.replace("fa-eye", "fa-eye-slash");
+            } else {
+                confirmInput.type = "password";
+                toggleConfirmPwd.classList.replace("fa-eye-slash", "fa-eye");
+            }
+        });
+
+        // Real-time strength meter calculation
+        passwordInput.addEventListener("input", () => {
+            const pwd = passwordInput.value;
+            let score = 0;
+            
+            if (pwd.length >= 8) score++;
+            if (/[A-Z]/.test(pwd)) score++;
+            if (/[a-z]/.test(pwd)) score++;
+            if (/[0-9]/.test(pwd)) score++;
+            if (/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) score++;
+            
+            let color = "#be123c"; // weak crimson
+            let text = "Password Strength: Too Weak";
+            let width = "20%";
+            
+            if (score >= 5) {
+                color = "#0f766e"; // strong emerald
+                text = "Password Strength: Very Strong";
+                width = "100%";
+            } else if (score >= 4) {
+                color = "#0f766e";
+                text = "Password Strength: Strong";
+                width = "80%";
+            } else if (score >= 3) {
+                color = "#b45309"; // amber
+                text = "Password Strength: Moderate";
+                width = "60%";
+            } else if (score >= 2) {
+                color = "#b45309";
+                text = "Password Strength: Weak";
+                width = "40%";
+            }
+            
+            strengthBar.style.width = width;
+            strengthBar.style.backgroundColor = color;
+            strengthText.innerText = text;
+            strengthText.style.color = color;
+        });
+
+        // Form Submit
+        registerForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById("name").value;
+            const email = document.getElementById("email").value;
+            const mobile = document.getElementById("mobile").value;
+            const role = document.getElementById("role").value;
+            const password = passwordInput.value;
+            const confirm_password = confirmInput.value;
+            
+            if (password !== confirm_password) {
+                showToast("Passwords do not match!", "error");
+                return;
+            }
+            
+            // Basic regex score validation in front
+            const hasCapital = /[A-Z]/.test(password);
+            const hasNumber = /[0-9]/.test(password);
+            const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+            
+            if (password.length < 8 || !hasCapital || !hasNumber || !hasSpecial) {
+                showToast("Password fails security criteria. Must meet strength limits.", "warning");
+                return;
+            }
+ 
+            try {
+                // Send payload matching backend API contract
+                const result = await apiPost("/auth/register", {
+                    fullName: name,
+                    email,
+                    mobile,
+                    role,
+                    password,
+                    confirmPassword: confirm_password
+                });
+
+                showToast(result.message || "Registration Successful!", "success");
+                setTimeout(() => {
+                    window.location.href = "/login";
+                }, 1500);
+            } catch(err) {
+                console.error(err);
+                showToast(err.message || (err && err.message) || "Registration Failed", "error");
+            }
+        });
+    });
+</script>
+{% endblock %}

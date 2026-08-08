@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Authentication Callback</title>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
+        <h2>Completing Google Sign In...</h2>
+        <p>Please wait while we sync your account.</p>
+    </div>
+    <script>
+        // Parse Hash parameters
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const idToken = params.get("id_token");
+        const accessToken = params.get("access_token");
+
+        if (idToken) {
+            // Decode JWT ID Token payload client-side to extract profile details
+            try {
+                const base64Url = idToken.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+
+                const payload = JSON.parse(jsonPayload);
+                
+                const selectedRole = (window.opener && window.opener.document.getElementById("role")) ? window.opener.document.getElementById("role").value : "user";
+                
+                // Send back to server
+                fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: payload.email,
+                        name: payload.name,
+                        picture: payload.picture,
+                        google_id: payload.sub,
+                        role: selectedRole
+                    })
+                })
+                .then(res => res.json())
+                .then(result => {
+                    if (result.success) {
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.onGoogleLoginSuccess(result);
+                        }
+                        window.close();
+                    } else {
+                        alert("Google login failed: " + (result.message || "Unknown error"));
+                        window.close();
+                    }
+                })
+                .catch(err => {
+                    console.error("Callback API error:", err);
+                    alert("Authentication server failed to respond.");
+                    window.close();
+                });
+
+            } catch (e) {
+                console.error("JWT decoding failed:", e);
+                alert("Invalid authentication token received.");
+                window.close();
+            }
+        } else {
+            console.error("Tokens missing in redirect callback.");
+            window.close();
+        }
+    </script>
+</body>
+</html>

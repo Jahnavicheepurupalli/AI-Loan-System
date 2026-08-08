@@ -1,0 +1,896 @@
+{% extends "base.html" %}
+
+{% block content %}
+<script>
+    (function() {
+        const token = localStorage.getItem("token");
+        const role = localStorage.getItem("role");
+        if (!token || role !== "user") {
+            window.location.href = "/login";
+        }
+    })();
+</script>
+<style>
+    /* User Dashboard Styling */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+    }
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        display: inline-block;
+    }
+    .status-pending { background: rgba(180, 83, 9, 0.15); color: var(--warning); }
+    .status-approved { background: rgba(15, 118, 110, 0.15); color: var(--success-light); }
+    .status-rejected { background: rgba(190, 18, 60, 0.15); color: var(--danger); }
+    
+    .dashboard-section {
+        display: none;
+    }
+    .dashboard-section.active {
+        display: block;
+        animation: fadeIn 0.4s ease-in-out;
+    }
+    
+    /* Stepper styles */
+    .stepper-pane {
+        display: none;
+    }
+    .stepper-pane.active {
+        display: block;
+        animation: fadeIn 0.4s;
+    }
+    
+    /* Progress timeline */
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+        list-style: none;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 9px;
+        top: 5px;
+        bottom: 5px;
+        width: 2px;
+        background: var(--border-color);
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+    .timeline-icon {
+        position: absolute;
+        left: -30px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--bg-secondary);
+        border: 2px solid var(--primary-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .timeline-item.active .timeline-icon {
+        background: var(--primary-light);
+    }
+    .timeline-item.success .timeline-icon {
+        background: var(--success-light);
+        border-color: var(--success-light);
+    }
+</style>
+
+<div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div style="text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; margin-bottom: 1rem;">
+            <img id="sidebar-avatar" src="{{ session.get('user_picture') or '/static/uploads/live_placeholder.jpg' }}" style="width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-light); margin-bottom: 0.5rem; display: inline-block;">
+            <h3 style="font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" id="sidebar-user-name">{{ session.get('user_name') }}</h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Customer Portal</span>
+        </div>
+        
+        <ul class="sidebar-menu">
+            <li class="sidebar-link active" data-section="overview">
+                <i class="fa-solid fa-chart-pie"></i> <span data-translate="sidebar_dashboard">Overview Dashboard</span>
+            </li>
+            <li class="sidebar-link" data-section="loans">
+                <i class="fa-solid fa-list-ul"></i> <span data-translate="sidebar_loans">Loan Offerings</span>
+            </li>
+            <li class="sidebar-link" data-section="recommendation">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> <span>AI Recommendation</span>
+            </li>
+            <li class="sidebar-link" data-section="apply">
+                <i class="fa-solid fa-file-signature"></i> <span data-translate="sidebar_apply">Apply for Loan</span>
+            </li>
+            <li class="sidebar-link" data-section="tracking">
+                <i class="fa-solid fa-route"></i> <span data-translate="sidebar_status">Track Status</span>
+            </li>
+            <li class="sidebar-link" data-section="documents">
+                <i class="fa-solid fa-folder-open"></i> <span>My Documents</span>
+            </li>
+            <li class="sidebar-link" data-section="history">
+                <i class="fa-solid fa-clock-rotate-left"></i> <span>Loan History</span>
+            </li>
+            <li class="sidebar-link" data-section="calculator">
+                <i class="fa-solid fa-calculator"></i> <span data-translate="sidebar_calculator">EMI Calculator</span>
+            </li>
+            <li class="sidebar-link" data-section="feedback">
+                <i class="fa-solid fa-comment-dots"></i> <span data-translate="sidebar_feedback">Submit Feedback</span>
+            </li>
+            <li class="sidebar-link" data-section="notifications">
+                <i class="fa-solid fa-bell"></i> <span>Notifications</span>
+            </li>
+            <li class="sidebar-link" data-section="settings">
+                <i class="fa-solid fa-cog"></i> <span data-translate="sidebar_settings">App Settings</span>
+            </li>
+        </ul>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="dashboard-main">
+        
+        <!-- Section 1: Overview -->
+        <div class="dashboard-section active" id="overview">
+            <h2 class="mb-4" style="margin-bottom: 1.5rem;">Dashboard Overview</h2>
+            
+            <!-- Additional Documents Required Alert -->
+            <div class="glass-panel" style="border-color: var(--danger); background: rgba(220, 38, 38, 0.08); padding: 1.25rem; margin-bottom: 1.5rem; display: none; align-items: center; justify-content: space-between; gap: 20px;" id="additional-docs-alert">
+                <div>
+                    <h4 style="color: var(--danger); margin-bottom: 6px; font-weight: 700; font-size: 1rem;"><i class="fa-solid fa-triangle-exclamation"></i> Attention Required: Additional Documents Requested</h4>
+                    <p style="margin: 0; font-size: 0.9rem;" id="additional-docs-alert-text">The loan officer requires additional documents. Please check details.</p>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="showSection('apply')" style="height: 35px; white-space: nowrap; border-color: var(--danger); color: var(--danger); background: transparent;">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload Documents
+                </button>
+            </div>
+            
+            <!-- Profile Completion Alert Card -->
+            <div class="glass-panel" style="padding: 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-left: 5px solid var(--primary-light);">
+                <div style="flex-grow: 1;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
+                        <span>Profile Completion Progress</span>
+                        <span id="profile-completion-percent">65%</span>
+                    </div>
+                    <div style="height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden;">
+                        <div id="profile-completion-bar" style="width: 65%; height: 100%; background: var(--primary-gradient); transition: width 0.5s;"></div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="showSection('settings')" style="height: 35px; white-space: nowrap;">
+                    <i class="fa-solid fa-user-pen"></i> Complete Profile
+                </button>
+            </div>
+
+            <!-- Gauges & recommendations grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 1.5rem; margin-bottom: 2rem;" class="responsive-checklist-grid">
+                <!-- Gauge 1: Credit Score Speedometer -->
+                <div class="glass-panel" style="padding: 1.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; font-weight: 700; width: 100%;">Credit Score Estimator</h4>
+                    <svg width="180" height="110" viewBox="0 0 200 120" style="margin-top: 10px;">
+                        <path d="M20,110 A80,80 0 0,1 180,110" fill="none" stroke="var(--border-color)" stroke-width="12" stroke-linecap="round"/>
+                        <path id="credit-gauge-fill" d="M20,110 A80,80 0 0,1 180,110" fill="none" stroke="url(#credit-gradient)" stroke-width="12" stroke-linecap="round" stroke-dasharray="251" stroke-dashoffset="251"/>
+                        <line id="credit-gauge-pointer" x1="100" y1="110" x2="100" y2="40" stroke="var(--text-primary)" stroke-width="3" transform="rotate(-90 100 110)" style="transition: transform 0.8s ease-out; transform-origin: 100px 110px;"/>
+                        <text x="100" y="95" text-anchor="middle" font-size="26" font-weight="800" fill="var(--text-primary)" id="credit-gauge-value">300</text>
+                        <text x="100" y="115" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-muted)" id="credit-gauge-label">POOR</text>
+                        <defs>
+                            <linearGradient id="credit-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#ef4444" />
+                                <stop offset="50%" stop-color="#f59e0b" />
+                                <stop offset="100%" stop-color="#10b981" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                
+                <!-- Gauge 2: Eligibility Radial -->
+                <div class="glass-panel" style="padding: 1.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; font-weight: 700; width: 100%;">Loan Eligibility Meter</h4>
+                    <svg width="120" height="120" viewBox="0 0 150 150" style="margin-top: 5px;">
+                        <circle cx="75" cy="75" r="60" fill="none" stroke="var(--border-color)" stroke-width="12"/>
+                        <circle id="eligibility-gauge-fill" cx="75" cy="75" r="60" fill="none" stroke="var(--success-light)" stroke-width="12" stroke-dasharray="377" stroke-dashoffset="377" transform="rotate(-90 75 75)" style="transition: stroke-dashoffset 0.8s ease-out;"/>
+                        <text x="75" y="80" text-anchor="middle" font-size="28" font-weight="800" fill="var(--text-primary)" id="eligibility-gauge-value">0%</text>
+                        <text x="75" y="105" text-anchor="middle" font-size="9" font-weight="700" fill="var(--text-muted)">ELIGIBILITY INDEX</text>
+                    </svg>
+                </div>
+                
+                <!-- Card 3: AI Loan Recommendation Card -->
+                <div class="glass-panel" style="padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid var(--success-light);">
+                    <div>
+                        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; font-weight: 700;">AI Recommended Product</h4>
+                        <div style="font-size: 1.35rem; font-weight: 800; color: var(--primary-light); margin: 6px 0;" id="user-recommendation-title">No Recommendation Yet</div>
+                        <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;" id="user-recommendation-desc">
+                            Please use the AI Recommendation tool to analyze your financial parameters.
+                        </p>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="showSection('recommendation')" style="width: 100%; justify-content: center; height: 35px; margin-top: 10px;">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Get Match Profile
+                    </button>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card glass-panel" style="border-left: 4px solid var(--primary-light);">
+                    <h4>Total Applications</h4>
+                    <div class="value" id="count-total">0</div>
+                </div>
+                <div class="metric-card glass-panel" style="border-left: 4px solid var(--warning);">
+                    <h4>Pending Applications</h4>
+                    <div class="value" id="count-pending">0</div>
+                </div>
+                <div class="metric-card glass-panel" style="border-left: 4px solid var(--success-light);">
+                    <h4>Approved Applications</h4>
+                    <div class="value" id="count-approved">0</div>
+                </div>
+                <div class="metric-card glass-panel" style="border-left: 4px solid var(--danger);">
+                    <h4>Rejected Applications</h4>
+                    <div class="value" id="count-rejected">0</div>
+                </div>
+            </div>
+            
+            <div class="glass-panel" style="padding: 2rem;">
+                <h3 style="margin-bottom: 1.25rem;">My Active Loan Applications</h3>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;" id="applications-table">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-primary);">
+                                <th style="padding: 10px;">Application ID</th>
+                                <th style="padding: 10px;">Loan Type</th>
+                                <th style="padding: 10px;">Amount</th>
+                                <th style="padding: 10px;">Status</th>
+                                <th style="padding: 10px;">Submission Date</th>
+                                <th style="padding: 10px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" style="padding: 20px; text-align: center; color: var(--text-muted);">No active applications. Apply for a loan to get started.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Loans Catalog -->
+        <div class="dashboard-section" id="loans">
+            <h2 style="margin-bottom: 1rem;" data-translate="loans_title">Our Diverse Loan Products</h2>
+            <p style="margin-bottom: 2rem;" data-translate="loans_desc">Find the perfect loan product with highly competitive interest rates tailored to your profile.</p>
+            <div class="loan-grid" id="dashboard-loan-grid">
+                <!-- Loaded Dynamically -->
+            </div>
+        </div>
+
+        <!-- Section 3: AI Recommendation -->
+        <div class="dashboard-section" id="recommendation">
+            <h2 style="margin-bottom: 1.5rem;">AI Loan Eligibility & Recommendations</h2>
+            <div class="glass-panel" style="padding: 2rem; max-width: 700px; margin-bottom: 2rem;">
+                <p style="margin-bottom: 1.5rem; color: var(--text-muted);">Provide details below. Our Groq AI engine will compute approval parameters and return customized loan recommendation profiles.</p>
+                
+                <form id="recommend-form">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Employment Type</label>
+                            <select class="form-control" id="rec-emp-type">
+                                <option value="Salaried">Salaried Employee</option>
+                                <option value="Self Employed">Self Employed / Entrepreneur</option>
+                                <option value="Farmer">Farmer (Agriculturalist)</option>
+                                <option value="Student">Student</option>
+                                <option value="Unemployed">Unemployed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>User Category</label>
+                            <select class="form-control" id="rec-category">
+                                <option value="General">General</option>
+                                <option value="Student">Student</option>
+                                <option value="Farmer">Farmer</option>
+                                <option value="Senior Citizen">Senior Citizen</option>
+                                <option value="OBC">OBC</option>
+                                <option value="SC">SC</option>
+                                <option value="ST">ST</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Monthly Household Income (₹)</label>
+                            <input type="number" class="form-control" id="rec-income" value="30000" min="1000">
+                        </div>
+                        <div class="form-group">
+                            <label>Existing Loan EMIs (Monthly ₹)</label>
+                            <input type="number" class="form-control" id="rec-emi" value="0" min="0">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="form-group">
+                            <label>Age</label>
+                            <input type="number" class="form-control" id="rec-age" value="28" min="18" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Required Loan Amount (₹)</label>
+                            <input type="number" class="form-control" id="rec-amount" value="500000" min="1000">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Loan Purpose</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" class="form-control" id="rec-purpose" value="Personal expenses" placeholder="E.g. Education, Business expansion, Medical emergency" required style="flex: 1;">
+                            <button type="button" class="btn btn-secondary btn-voice-input" data-field="rec-purpose" onclick="startFieldVoiceInput('rec-purpose')" style="padding: 0 12px; height: 38px; border-radius: 4px; display: flex; align-items: center; justify-content: center;" title="Speak Input">
+                                <i class="fa-solid fa-microphone"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; margin-top: 1rem;">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Get AI Recommendation
+                    </button>
+                </form>
+            </div>
+
+            <!-- Recommendation Result Display -->
+            <div class="glass-panel" id="recommendation-result" style="display: none; padding: 2.5rem; border-left: 6px solid var(--primary-light);">
+                <!-- Dynamic Content injected by JS -->
+            </div>
+        </div>
+
+        <!-- Section 4: Apply Loan Wizard -->
+        <div class="dashboard-section" id="apply">
+            <h2 style="margin-bottom: 1.5rem;">Apply For A New Loan</h2>
+            
+            <div class="stepper" style="margin-bottom: 2.5rem;">
+                <div class="step-item active" id="step-btn-1">
+                    <div class="step-num">1</div>
+                    <div>Basic Details</div>
+                </div>
+                <div class="step-item" id="step-btn-2">
+                    <div class="step-num">2</div>
+                    <div>Document Upload</div>
+                </div>
+                <div class="step-item" id="step-btn-3">
+                    <div class="step-num">3</div>
+                    <div>Biometric Capture</div>
+                </div>
+            </div>
+
+            <!-- Step 1: Basic Details -->
+            <div class="stepper-pane active" id="pane-step-1">
+                <div class="glass-panel" style="padding: 2.5rem;">
+                    <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Personal Profile & Financial Summary</h3>
+                    
+                    <form id="apply-details-form">
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label data-translate="field_name">Full Name</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" class="form-control" id="apply-name" required placeholder="Full Name" style="flex: 1;">
+                                    <button type="button" class="btn btn-secondary btn-voice-input" data-field="apply-name" onclick="startFieldVoiceInput('apply-name')" style="padding: 0 12px; height: 38px; border-radius: 4px; display: flex; align-items: center; justify-content: center;" title="Speak Input">
+                                        <i class="fa-solid fa-microphone"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label data-translate="field_age">Age</label>
+                                <input type="number" class="form-control" id="apply-age" required min="18" max="75">
+                            </div>
+                            <div class="form-group">
+                                <label>Gender</label>
+                                <select class="form-control" id="apply-gender">
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Date of Birth</label>
+                                <input type="date" class="form-control" id="apply-dob" required>
+                            </div>
+                            <div class="form-group">
+                                <label data-translate="field_email">Email</label>
+                                <input type="email" class="form-control" id="apply-email" required>
+                            </div>
+                            <div class="form-group">
+                                <label data-translate="field_mobile">Mobile</label>
+                                <input type="tel" class="form-control" id="apply-mobile" required pattern="[0-9]{10}">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Residential Address</label>
+                            <div style="display: flex; gap: 8px;">
+                                <textarea class="form-control" id="apply-address" rows="2" required placeholder="Full permanent address" style="flex: 1;"></textarea>
+                                <button type="button" class="btn btn-secondary btn-voice-input" data-field="apply-address" onclick="startFieldVoiceInput('apply-address')" style="padding: 0 12px; height: 54px; border-radius: 4px; display: flex; align-items: center; justify-content: center;" title="Speak Input">
+                                    <i class="fa-solid fa-microphone"></i>
+                                </button>
+                            </div>
+                            <div style="margin-top: 6px; display: flex; align-items: center; gap: 10px;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-detect-location" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
+                                    <i class="fa-solid fa-location-crosshairs"></i> Detect Current Location
+                                </button>
+                                <span id="location-status" style="font-size: 0.85rem; color: var(--text-muted);"></span>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Employment Type</label>
+                                <select class="form-control" id="apply-emp-type">
+                                    <option value="Salaried">Salaried</option>
+                                    <option value="Self Employed">Self Employed</option>
+                                    <option value="Farmer">Farmer (Agriculture)</option>
+                                    <option value="Student">Student</option>
+                                    <option value="Unemployed">Unemployed</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Occupation</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" class="form-control" id="apply-occupation" required placeholder="E.g. Software Engineer, Farmer" style="flex: 1;">
+                                    <button type="button" class="btn btn-secondary btn-voice-input" data-field="apply-occupation" onclick="startFieldVoiceInput('apply-occupation')" style="padding: 0 12px; height: 38px; border-radius: 4px; display: flex; align-items: center; justify-content: center;" title="Speak Input">
+                                        <i class="fa-solid fa-microphone"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>User Category</label>
+                                <select class="form-control" id="apply-category">
+                                    <option value="General">General</option>
+                                    <option value="Student">Student</option>
+                                    <option value="Farmer">Farmer</option>
+                                    <option value="Senior Citizen">Senior Citizen</option>
+                                    <option value="OBC">OBC</option>
+                                    <option value="SC">SC</option>
+                                    <option value="ST">ST</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label data-translate="field_income">Monthly Income</label>
+                                <input type="number" class="form-control" id="apply-income" required>
+                            </div>
+                            <div class="form-group">
+                                <label data-translate="field_loans">Existing Loan EMIs</label>
+                                <input type="number" class="form-control" id="apply-loans" required value="0">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-group">
+                                <label>Aadhaar Number (12 Digits)</label>
+                                <input type="text" class="form-control" id="apply-aadhaar" required pattern="[0-9]{12}" placeholder="0000 0000 0000">
+                            </div>
+                            <div class="form-group">
+                                <label>PAN Card Number</label>
+                                <input type="text" class="form-control" id="apply-pan" required pattern="[A-Z]{5}[0-9]{4}[A-Z]" placeholder="ABCDE1234F">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                            <div class="form-group">
+                                <label>Loan Product Type</label>
+                                <select class="form-control" id="apply-loan-type">
+                                    <option value="Personal Loan">Personal Loan</option>
+                                    <option value="Education Loan">Education Loan</option>
+                                    <option value="Home Loan">Home Loan</option>
+                                    <option value="Vehicle Loan">Vehicle Loan</option>
+                                    <option value="Business Loan">Business Loan</option>
+                                    <option value="Agriculture Loan">Agriculture Loan</option>
+                                    <option value="Gold Loan">Gold Loan</option>
+                                    <option value="Women Entrepreneur Loan">Women Entrepreneur Loan</option>
+                                    <option value="Small Business Loan">Small Business Loan</option>
+                                    <option value="Medical Emergency Loan">Medical Emergency Loan</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-translate="field_amount">Loan Amount (Requested)</label>
+                                <input type="number" class="form-control" id="apply-amount" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label data-translate="field_purpose">Loan Purpose</label>
+                            <input type="text" class="form-control" id="apply-purpose" required placeholder="E.g., Medical Bills, Land purchase">
+                        </div>
+
+                        <!-- Real-time Eligibility Check Banner inside the wizard -->
+                        <div id="instant-eligibility-banner" class="glass-panel" style="display: none; padding: 1.5rem; margin-bottom: 1.5rem; border-left: 6px solid var(--success-light);">
+                            <!-- Calculated variables dynamically inside JS -->
+                        </div>
+
+                        <div style="text-align: right; margin-top: 1.5rem;">
+                            <button type="button" class="btn btn-primary btn-lg" id="btn-details-next">
+                                Save Details & Next <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Step 2: Document Uploads -->
+            <div class="stepper-pane" id="pane-step-2">
+                <div class="glass-panel" style="padding: 2.5rem; margin-bottom: 1.5rem;">
+                    <h3 style="margin-bottom: 1rem;">Verify & Upload Documents</h3>
+                    <div style="background: rgba(180, 83, 9, 0.1); color: var(--warning); padding: 1rem; border-radius: var(--radius-sm); font-size: 0.9rem; margin-bottom: 1.5rem;">
+                        <i class="fa-solid fa-shield-halved"></i> <b>Security Notice:</b> Files undergo scanning for OCR text accuracy, image blur validation, and digital EXIF modifications. Tampering software headers (Photoshop/Canva) will flag fraud triggers.
+                    </div>
+
+                    <!-- Category Notice Box -->
+                    <div id="upload-docs-instructions" style="background: rgba(59, 130, 246, 0.1); color: var(--primary-light); padding: 1rem; border-radius: var(--radius-sm); font-size: 0.95rem; font-weight: 600; margin-bottom: 2rem;">
+                        <!-- Populate documents conditionally based on Selected Category inside JS -->
+                    </div>
+
+                    <div id="dynamic-documents-checklist" class="responsive-checklist-grid">
+                        <!-- checklist slots will be rendered dynamically here -->
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; margin-top: 2.5rem;">
+                        <button class="btn btn-secondary btn-lg" id="btn-docs-prev">
+                            <i class="fa-solid fa-arrow-left"></i> Previous Step
+                        </button>
+                        <button class="btn btn-primary btn-lg" id="btn-docs-next" disabled>
+                            Verification Scan & Next <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Biometric Face Match -->
+            <div class="stepper-pane" id="pane-step-3">
+                <div class="glass-panel" style="padding: 2.5rem; text-align: center;">
+                    <h3 style="margin-bottom: 1rem;">Biometric Face Match Identity Audit</h3>
+                    <p style="margin-bottom: 1.5rem; color: var(--text-muted);">Verify identity by comparing a live camera snapshot against the photograph scanned from your Aadhaar Card.</p>
+                    
+                    <div class="camera-container" style="position: relative; max-width: 480px; margin: 0 auto; overflow: hidden; border-radius: var(--radius-md); border: 2px solid var(--border-color);">
+                        <video id="webcam" class="camera-preview" autoplay playsinline style="width: 100%; height: auto; transform: scaleX(-1); display: block;"></video>
+                        <canvas id="snapshot-canvas" style="display: none;"></canvas>
+                        <img id="face-captured-preview" style="display: none; width: 100%; height: auto; border-radius: var(--radius-md);" />
+                        
+                        <!-- Liveness Instruction Overlay -->
+                        <div id="liveness-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0, 0, 0, 0.7); color: white; padding: 10px; font-size: 0.9rem; font-weight: 600; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                            <div id="liveness-prompt">Step 1: Look straight and smile</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);" id="liveness-timer">Time remaining: 45s</div>
+                        </div>
+
+                        <!-- Circular Progress Loader -->
+                        <div id="liveness-loader" style="position: absolute; top: 15px; right: 15px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.3); border-top: 3px solid var(--primary-light); animation: spin 1s linear infinite; display: none;"></div>
+                    </div>
+
+                    <!-- Steps checklist indicators -->
+                    <div id="liveness-steps-panel" style="display: none; justify-content: center; gap: 15px; margin-top: 15px; font-size: 0.85rem; font-weight: 700;">
+                        <span id="liveness-step-0" style="color: var(--text-muted);"><i class="fa-solid fa-circle-notch"></i> Smile</span>
+                        <span id="liveness-step-1" style="color: var(--text-muted);"><i class="fa-solid fa-circle-notch"></i> Head Left</span>
+                        <span id="liveness-step-2" style="color: var(--text-muted);"><i class="fa-solid fa-circle-notch"></i> Head Right</span>
+                        <span id="liveness-step-3" style="color: var(--text-muted);"><i class="fa-solid fa-circle-notch"></i> Blink</span>
+                    </div>
+
+                    <div style="display: flex; justify-content: center; gap: 1rem; margin: 1.5rem 0;">
+                        <button class="btn btn-primary" id="btn-capture-snapshot">
+                            <i class="fa-solid fa-camera"></i> Start Biometric Liveness Check
+                        </button>
+                        <button class="btn btn-secondary" id="btn-recapture" style="display: none;">
+                            <i class="fa-solid fa-rotate-left"></i> Retake / Restart Biometrics
+                        </button>
+                        <button class="btn btn-secondary" id="btn-reset-verification" style="display: none; border-color: var(--danger); color: var(--danger);">
+                            <i class="fa-solid fa-undo"></i> Reset Verification
+                        </button>
+                    </div>
+
+                    <!-- Match score feedback box -->
+                    <div id="face-match-result" class="glass-panel" style="display: none; max-width: 500px; margin: 1.5rem auto; padding: 1.5rem; border-left: 6px solid var(--success-light);">
+                        <!-- Injected via JS -->
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; margin-top: 2.5rem; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                        <button class="btn btn-secondary btn-lg" id="btn-face-prev">
+                            <i class="fa-solid fa-arrow-left"></i> Previous Step
+                        </button>
+                        <button class="btn btn-primary btn-lg" id="btn-submit-application" disabled>
+                            Submit Final Application <i class="fa-solid fa-check-circle"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Track Status -->
+        <div class="dashboard-section" id="tracking">
+            <h2 style="margin-bottom: 1.5rem;">Application Status & Trackers</h2>
+            
+            <div class="glass-panel" style="padding: 2rem; margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1.25rem;">My Application Status Summary</h3>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;" id="tracking-applications-table">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-primary);">
+                                <th style="padding: 10px;">Application ID</th>
+                                <th style="padding: 10px;">Loan Type</th>
+                                <th style="padding: 10px;">Amount</th>
+                                <th style="padding: 10px;">Status</th>
+                                <th style="padding: 10px;">Progress %</th>
+                                <th style="padding: 10px;">Submitted Date</th>
+                                <th style="padding: 10px;">Officer Remarks</th>
+                                <th style="padding: 10px;">Appointment Date & Time</th>
+                                <th style="padding: 10px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tracking-applications-tbody">
+                            <tr>
+                                <td colspan="9" style="padding: 20px; text-align: center; color: var(--text-muted);">No active applications. Apply for a loan to get started.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="glass-panel" style="padding: 2.5rem; max-width: 700px; margin-bottom: 2rem;">
+                <div class="form-group" style="display: flex; gap: 1rem;">
+                    <input type="text" class="form-control" id="track-id-input" placeholder="Enter Application ID to check tracking timeline">
+                    <button class="btn btn-primary" id="btn-track-submit">
+                        <i class="fa-solid fa-magnifying-glass"></i> Track Timeline
+                    </button>
+                </div>
+            </div>
+
+            <!-- Timeline Panel -->
+            <div class="glass-panel" id="tracking-result-panel" style="display: none; padding: 2.5rem;">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+
+        <!-- Section: My Documents -->
+        <div class="dashboard-section" id="documents">
+            <h2 style="margin-bottom: 1.5rem;">My Document Vault</h2>
+            <div class="glass-panel" style="padding: 2rem;">
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Manage your uploaded verification credentials. These documents are automatically reused for new loan applications. You can preview, replace, or delete them below.</p>
+                
+                <!-- Replace Document Form -->
+                <div id="vault-replace-container" style="display: none; padding: 1.5rem; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; margin-bottom: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;"><i class="fa-solid fa-cloud-arrow-up"></i> Replace Document (<span id="vault-replace-title"></span>)</h4>
+                    <form id="vault-replace-form" style="display: flex; gap: 10px; align-items: center;">
+                        <input type="hidden" id="vault-replace-type">
+                        <input type="file" id="vault-replace-file" class="form-control" style="flex: 1;" required>
+                        <button type="submit" class="btn btn-primary" style="height: 38px;">Upload & Replace</button>
+                        <button type="button" class="btn btn-secondary" onclick="cancelVaultReplace()" style="height: 38px;">Cancel</button>
+                    </form>
+                </div>
+
+                <div id="documents-vault-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                    <!-- Population via dashboard.js -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Loan History -->
+        <div class="dashboard-section" id="history">
+            <h2 style="margin-bottom: 1.5rem;">My Loan Application History</h2>
+            <div class="glass-panel" style="padding: 2rem;">
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; border-radius: 8px;" class="premium-table">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--border-color); color: var(--text-primary); font-weight: 700;">
+                                <th style="padding: 12px 10px;">Application ID</th>
+                                <th style="padding: 12px 10px;">Loan Type</th>
+                                <th style="padding: 12px 10px;">Loan Amount</th>
+                                <th style="padding: 12px 10px;">Applied Date</th>
+                                <th style="padding: 12px 10px;">Status</th>
+                                <th style="padding: 12px 10px;">Officer Remarks</th>
+                                <th style="padding: 12px 10px; text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-applications-tbody">
+                            <tr>
+                                <td colspan="7" style="padding: 20px; text-align: center; color: var(--text-muted);">Loading loan history...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Dynamic Details Panel for selected application -->
+            <div class="glass-panel" id="history-details-panel" style="display: none; padding: 2.5rem; margin-top: 1.5rem;">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+
+        <!-- Section 6: EMI Calculator -->
+        <div class="dashboard-section" id="calculator">
+            <h2 style="margin-bottom: 1.5rem;">Interactive EMI Calculator</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div class="glass-panel" style="padding: 2rem;">
+                    <div class="form-group">
+                        <label>Loan Amount (₹)</label>
+                        <input type="number" class="form-control" id="emi-amount" value="500000">
+                    </div>
+                    <div class="form-group">
+                        <label>Interest Rate (% p.a.)</label>
+                        <input type="number" class="form-control" id="emi-rate" value="11.5" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Tenure</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" class="form-control" id="emi-tenure" value="5" style="flex: 1;">
+                            <select class="form-control" id="emi-tenure-unit" style="width: 100px;">
+                                <option value="years">Years</option>
+                                <option value="months">Months</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="btn-calc-emi" style="width: 100%; justify-content: center; padding: 0.8rem;">
+                        Calculate EMI Breakup
+                    </button>
+                </div>
+                <div class="glass-panel" style="padding: 2rem; display: flex; flex-direction: column; justify-content: center;">
+                    <h3 style="margin-bottom: 1.25rem;">Repayment Breakup</h3>
+                    <ul class="loan-spec-list">
+                        <li><span>Monthly EMI</span> <span id="emi-monthly">₹0.00</span></li>
+                        <li><span>Total Interest Payable</span> <span id="emi-interest">₹0.00</span></li>
+                        <li><span>Total Amount (P + I)</span> <span id="emi-total">₹0.00</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 7: Feedback -->
+        <div class="dashboard-section" id="feedback">
+            <h2 style="margin-bottom: 1.5rem;">Portal Experience Feedback</h2>
+            <div class="glass-panel" style="padding: 2.5rem; max-width: 600px;">
+                <form id="feedback-form">
+                    <div class="form-group">
+                        <label>Overall Portal Rating</label>
+                        <div style="font-size: 2rem; color: #fbbf24; cursor: pointer; display: flex; gap: 8px;" id="rating-stars">
+                            <i class="fa-regular fa-star" data-rating="1"></i>
+                            <i class="fa-regular fa-star" data-rating="2"></i>
+                            <i class="fa-regular fa-star" data-rating="3"></i>
+                            <i class="fa-regular fa-star" data-rating="4"></i>
+                            <i class="fa-regular fa-star" data-rating="5"></i>
+                        </div>
+                        <input type="hidden" id="feedback-rating" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label>Review Remarks</label>
+                        <textarea class="form-control" id="feedback-message" rows="4" placeholder="How was your document upload and AI matching experience? Write your review..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Submit Feedback</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Section 8: Notifications -->
+        <div class="dashboard-section" id="notifications">
+            <h2 style="margin-bottom: 1.5rem;">System Alerts & Status Notifications</h2>
+            <div class="glass-panel" style="padding: 2rem;">
+                <div class="notifications-list" id="notifications-list-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Population via AJAX -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 9: Settings -->
+        <div class="dashboard-section" id="settings">
+            <h2 class="mb-4" style="margin-bottom: 1.5rem;" data-translate="sidebar_settings">App Settings</h2>
+            
+            <div style="display: grid; grid-template-columns: 1fr; gap: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;" class="responsive-checklist-grid">
+                    <!-- Profile Settings -->
+                    <div class="glass-panel" style="padding: 2rem;">
+                        <h4 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-user-gear"></i> Profile Information</h4>
+                        
+                        <!-- Profile Photo Section -->
+                        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+                            <div style="position: relative;">
+                                <img id="profile-avatar-settings" src="{{ session.get('user_picture') or '/static/uploads/live_placeholder.jpg' }}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-light);">
+                                <label for="profile-photo-input" style="position: absolute; bottom: 0; right: 0; background: var(--primary-light); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--bg-primary);">
+                                    <i class="fa-solid fa-camera" style="font-size: 0.85rem;"></i>
+                                </label>
+                                <input type="file" id="profile-photo-input" style="display: none;" accept="image/*">
+                            </div>
+                            <div>
+                                <div style="font-weight: 700; font-size: 1rem; color: var(--text-primary);">Your Profile Photo</div>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">Max size 5MB. PNG, JPG or JPEG.</span>
+                            </div>
+                        </div>
+
+                        <form id="settings-profile-form">
+                            <div class="form-group">
+                                <label>Full Name</label>
+                                <input type="text" class="form-control" id="settings-name" value="{{ session.get('user_name') }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Email Address</label>
+                                <input type="email" class="form-control" id="settings-email" value="{{ session.get('user_email') }}" readonly style="background: rgba(0,0,0,0.05); color: var(--text-muted); cursor: not-allowed;">
+                            </div>
+                            <div class="form-group">
+                                <label>Mobile Number</label>
+                                <input type="tel" class="form-control" id="settings-mobile" placeholder="Mobile Number" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Home Address</label>
+                                <textarea class="form-control" id="settings-address" rows="3" placeholder="Enter home address..." required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Account Creation Date</label>
+                                <input type="text" class="form-control" id="settings-created-at" readonly style="background: rgba(0,0,0,0.05); color: var(--text-muted); cursor: not-allowed;">
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; height: 38px;">
+                                Save Profile Details
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Security & Password -->
+                    <div class="glass-panel" style="padding: 2rem;">
+                        <h4 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-key"></i> Change Password</h4>
+                        <form id="settings-password-form">
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <input type="password" class="form-control" id="settings-password" required placeholder="Min 8 chars, Cap, Num, Special">
+                            </div>
+                            <div class="form-group">
+                                <label>Confirm New Password</label>
+                                <input type="password" class="form-control" id="settings-confirm-password" required placeholder="Confirm New Password">
+                            </div>
+                            <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center; height: 38px;">
+                                Update Password
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;" class="responsive-checklist-grid">
+                    <!-- Notifications & Preferences -->
+                    <div class="glass-panel" style="padding: 2rem;">
+                        <h4 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-envelope-open-text"></i> Notification Preferences</h4>
+                        <form id="settings-notifications-form">
+                            <div class="form-group" style="display:flex; flex-direction:column; gap:10px;">
+                                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                    <input type="checkbox" id="pref-email" checked style="width:16px; height:16px;"> Email Alert Notifications
+                                </label>
+                                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                    <input type="checkbox" id="pref-sms" checked style="width:16px; height:16px;"> SMS Text Alerts
+                                </label>
+                                <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                    <input type="checkbox" id="pref-portal" checked style="width:16px; height:16px;"> Portal Dashboard Updates
+                                </label>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; height: 38px; margin-top: 1.5rem;">
+                                Save Preferences
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Language & Theme Settings -->
+                    <div class="glass-panel" style="padding: 2rem;">
+                        <h4 style="margin-bottom: 1.5rem;"><i class="fa-solid fa-sliders"></i> System Customization</h4>
+                        <div class="form-group">
+                            <label data-translate="lang_pref">Language Preference</label>
+                            <select id="settings-lang-selector" class="form-control">
+                                <option value="en">English</option>
+                                <option value="te">తెలుగు</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label data-translate="theme_pref">Theme Preference</label>
+                            <select id="settings-theme-selector" class="form-control">
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                                <option value="system">System Default</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Load Dashboard Controllers -->
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}
